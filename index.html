@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Token Sale</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.min.js"></script>
+
+<style>
+body {
+  font-family: Arial, sans-serif;
+  background: #0f172a;
+  color: #fff;
+  text-align: center;
+  padding: 20px;
+}
+.card {
+  max-width: 400px;
+  margin: auto;
+  background: #020617;
+  border-radius: 16px;
+  padding: 25px;
+}
+button {
+  width: 100%;
+  padding: 14px;
+  margin-top: 10px;
+  font-size: 16px;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+}
+.connect { background: #22c55e; }
+.buy { background: #2563eb; }
+button:disabled {
+  background: #475569;
+  cursor: not-allowed;
+}
+.status {
+  margin-top: 15px;
+  font-size: 14px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="card">
+  <h2>🔥 Token Sale</h2>
+  <p>Price: <b>$0.0001 / token</b></p>
+
+  <button class="connect" onclick="connectWallet()">Connect Wallet</button>
+
+  <button class="buy" onclick="buy(10)" disabled id="b10">Buy $10</button>
+  <button class="buy" onclick="buy(20)" disabled id="b20">Buy $20</button>
+  <button class="buy" onclick="buy(50)" disabled id="b50">Buy $50</button>
+
+  <div class="status" id="status">Not connected</div>
+</div>
+
+<script>
+const SALE_ADDRESS = "0xc457c1542a8B27d7689363b25a6e007276500A3D";
+const USDT_ADDRESS = "0x55d398326f99059fF775485246999027B3197955";
+
+const SALE_ABI = [
+  "function buy(uint256 usdtAmount) external"
+];
+
+const USDT_ABI = [
+  "function approve(address spender, uint256 amount) external returns (bool)"
+];
+
+let provider, signer;
+
+async function connectWallet() {
+  if (!window.ethereum) {
+    alert("Install MetaMask");
+    return;
+  }
+
+  provider = new ethers.providers.Web3Provider(window.ethereum);
+  await provider.send("eth_requestAccounts", []);
+  signer = provider.getSigner();
+
+  const network = await provider.getNetwork();
+  if (network.chainId !== 56) {
+    alert("Switch to BSC Mainnet");
+    return;
+  }
+
+  document.getElementById("status").innerText = "Wallet connected ✅";
+  document.getElementById("b10").disabled = false;
+  document.getElementById("b20").disabled = false;
+  document.getElementById("b50").disabled = false;
+}
+
+async function buy(amountUsd) {
+  try {
+    const usdtAmount = ethers.BigNumber.from(amountUsd).mul(1_000_000);
+
+    const usdt = new ethers.Contract(USDT_ADDRESS, USDT_ABI, signer);
+    const sale = new ethers.Contract(SALE_ADDRESS, SALE_ABI, signer);
+
+    document.getElementById("status").innerText = "Approving USDT...";
+    const tx1 = await usdt.approve(SALE_ADDRESS, usdtAmount);
+    await tx1.wait();
+
+    document.getElementById("status").innerText = "Buying token...";
+    const tx2 = await sale.buy(usdtAmount);
+    await tx2.wait();
+
+    document.getElementById("status").innerText = "Success 🎉 Token received!";
+  } catch (err) {
+    document.getElementById("status").innerText = "Transaction failed ❌";
+  }
+}
+</script>
+
+</body>
+</html>
