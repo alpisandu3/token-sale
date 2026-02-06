@@ -95,27 +95,35 @@ async function connectWallet() {
   document.getElementById("b50").disabled = false;
 }
 
-async function buy(amountUsd) {
+async function connectWallet() {
+  if (typeof window.ethereum === "undefined") {
+    alert("Wallet tidak terdeteksi. Buka via MetaMask Browser.");
+    return;
+  }
+
   try {
-    const usdtAmount = ethers.BigNumber.from(amountUsd).mul(1_000_000);
+    const accounts = await window.ethereum.request({
+      method: "eth_requestAccounts"
+    });
 
-    const usdt = new ethers.Contract(USDT_ADDRESS, USDT_ABI, signer);
-    const sale = new ethers.Contract(SALE_ADDRESS, SALE_ABI, signer);
+    provider = new ethers.providers.Web3Provider(window.ethereum);
+    signer = provider.getSigner();
 
-    document.getElementById("status").innerText = "Approving USDT...";
-    const tx1 = await usdt.approve(SALE_ADDRESS, usdtAmount);
-    await tx1.wait();
+    const network = await provider.getNetwork();
+    if (network.chainId !== 56) {
+      alert("Pindah ke BSC Mainnet dulu");
+      return;
+    }
 
-    document.getElementById("status").innerText = "Buying token...";
-    const tx2 = await sale.buy(usdtAmount);
-    await tx2.wait();
+    document.getElementById("status").innerText =
+      "Connected: " + accounts[0].slice(0, 6) + "..." + accounts[0].slice(-4);
 
-    document.getElementById("status").innerText = "Success 🎉 Token received!";
+    document.getElementById("b10").disabled = false;
+    document.getElementById("b20").disabled = false;
+    document.getElementById("b50").disabled = false;
+
   } catch (err) {
-    document.getElementById("status").innerText = "Transaction failed ❌";
+    alert("User rejected or wallet error");
   }
 }
-</script>
 
-</body>
-</html>
