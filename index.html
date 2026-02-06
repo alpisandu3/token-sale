@@ -1,46 +1,41 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
+<meta charset="UTF-8" />
 <title>Token Sale</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.min.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
 <style>
 body {
-  font-family: Arial, sans-serif;
-  background: #0f172a;
-  color: #fff;
-  text-align: center;
-  padding: 20px;
+  background:#0f172a;
+  color:white;
+  font-family:Arial, sans-serif;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  min-height:100vh;
 }
 .card {
-  max-width: 400px;
-  margin: auto;
-  background: #020617;
-  border-radius: 16px;
-  padding: 25px;
+  background:#020617;
+  padding:24px;
+  border-radius:16px;
+  width:100%;
+  max-width:380px;
+  text-align:center;
 }
 button {
-  width: 100%;
-  padding: 14px;
-  margin-top: 10px;
-  font-size: 16px;
-  border: none;
-  border-radius: 12px;
-  cursor: pointer;
+  width:100%;
+  padding:14px;
+  margin-top:10px;
+  border:none;
+  border-radius:12px;
+  font-size:16px;
+  cursor:pointer;
 }
-.connect { background: #22c55e; }
-.buy { background: #2563eb; }
-button:disabled {
-  background: #475569;
-  cursor: not-allowed;
-}
-.status {
-  margin-top: 15px;
-  font-size: 14px;
-}
+.connect { background:#22c55e; }
+.buy { background:#2563eb; }
+button:disabled { background:#475569; }
+.status { margin-top:12px; font-size:14px; }
 </style>
 </head>
 
@@ -50,80 +45,100 @@ button:disabled {
   <h2>🔥 Token Sale</h2>
   <p>Price: <b>$0.0001 / token</b></p>
 
-  <button class="connect" onclick="connectWallet()">Connect Wallet</button>
+  <button id="connectBtn" class="connect">Connect Wallet</button>
 
-  <button class="buy" onclick="buy(10)" disabled id="b10">Buy $10</button>
-  <button class="buy" onclick="buy(20)" disabled id="b20">Buy $20</button>
-  <button class="buy" onclick="buy(50)" disabled id="b50">Buy $50</button>
+  <button id="b10" class="buy" disabled>Buy $10</button>
+  <button id="b20" class="buy" disabled>Buy $20</button>
+  <button id="b50" class="buy" disabled>Buy $50</button>
 
   <div class="status" id="status">Not connected</div>
 </div>
 
-<script>
+<script type="module">
+import { createWeb3Modal, defaultConfig } from
+"https://cdn.jsdelivr.net/npm/@web3modal/ethers@2.7.1/dist/index.js";
+import { ethers } from
+"https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.esm.min.js";
+
+/* ================== GANTI BAGIAN INI ================== */
+const WALLETCONNECT_PROJECT_ID = "SALE_ADDRESS";
 const SALE_ADDRESS = "0xc457c1542a8B27d7689363b25a6e007276500A3D";
 const USDT_ADDRESS = "0x55d398326f99059fF775485246999027B3197955";
+/* ===================================================== */
 
-const SALE_ABI = [
-  "function buy(uint256 usdtAmount) external"
-];
+const SALE_ABI = ["function buy(uint256 usdtAmount) external"];
+const USDT_ABI = ["function approve(address,uint256) external returns(bool)"];
 
-const USDT_ABI = [
-  "function approve(address spender, uint256 amount) external returns (bool)"
-];
+const metadata = {
+  name: "Token Sale",
+  description: "Buy token with USDT",
+  url: "https://example.com",
+  icons: ["https://walletconnect.com/walletconnect-logo.png"]
+};
+
+const ethersConfig = defaultConfig({
+  metadata,
+  defaultChainId: 56,
+  rpcUrl: "https://bsc-dataseed.binance.org/"
+});
+
+const modal = createWeb3Modal({
+  ethersConfig,
+  chains: [{
+    chainId: 56,
+    name: "BNB Smart Chain",
+    currency: "BNB",
+    explorerUrl: "https://bscscan.com",
+    rpcUrl: "https://bsc-dataseed.binance.org/"
+  }],
+  projectId: WALLETCONNECT_PROJECT_ID
+});
 
 let provider, signer;
 
-async function connectWallet() {
-  if (!window.ethereum) {
-    alert("Install MetaMask");
-    return;
-  }
+document.getElementById("connectBtn").onclick = async () => {
+  await modal.open();
 
-  provider = new ethers.providers.Web3Provider(window.ethereum);
-  await provider.send("eth_requestAccounts", []);
+  provider = new ethers.providers.Web3Provider(modal.getWalletProvider(), "any");
   signer = provider.getSigner();
 
   const network = await provider.getNetwork();
   if (network.chainId !== 56) {
-    alert("Switch to BSC Mainnet");
+    document.getElementById("status").innerText = "Switch to BSC Mainnet";
     return;
   }
 
-  document.getElementById("status").innerText = "Wallet connected ✅";
-  document.getElementById("b10").disabled = false;
-  document.getElementById("b20").disabled = false;
-  document.getElementById("b50").disabled = false;
-}
+  const address = await signer.getAddress();
+  document.getElementById("status").innerText =
+    "Connected: " + address.slice(0,6) + "..." + address.slice(-4);
 
-async function connectWallet() {
-  if (typeof window.ethereum === "undefined") {
-    alert("Wallet tidak terdeteksi. Buka via MetaMask Browser.");
-    return;
-  }
+  b10.disabled = b20.disabled = b50.disabled = false;
+};
 
+async function buyUSD(usd) {
   try {
-    const accounts = await window.ethereum.request({
-      method: "eth_requestAccounts"
-    });
+    const usdtAmount = ethers.BigNumber.from(usd).mul(1_000_000);
+    const usdt = new ethers.Contract(USDT_ADDRESS, USDT_ABI, signer);
+    const sale = new ethers.Contract(SALE_ADDRESS, SALE_ABI, signer);
 
-    provider = new ethers.providers.Web3Provider(window.ethereum);
-    signer = provider.getSigner();
+    status.innerText = "Approving USDT...";
+    const tx1 = await usdt.approve(SALE_ADDRESS, usdtAmount);
+    await tx1.wait();
 
-    const network = await provider.getNetwork();
-    if (network.chainId !== 56) {
-      alert("Pindah ke BSC Mainnet dulu");
-      return;
-    }
+    status.innerText = "Buying token...";
+    const tx2 = await sale.buy(usdtAmount);
+    await tx2.wait();
 
-    document.getElementById("status").innerText =
-      "Connected: " + accounts[0].slice(0, 6) + "..." + accounts[0].slice(-4);
-
-    document.getElementById("b10").disabled = false;
-    document.getElementById("b20").disabled = false;
-    document.getElementById("b50").disabled = false;
-
-  } catch (err) {
-    alert("User rejected or wallet error");
+    status.innerText = "Success 🎉 Token received!";
+  } catch {
+    status.innerText = "Transaction failed ❌";
   }
 }
 
+b10.onclick = () => buyUSD(10);
+b20.onclick = () => buyUSD(20);
+b50.onclick = () => buyUSD(50);
+</script>
+
+</body>
+</html>
